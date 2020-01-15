@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 4
 PATCHLEVEL = 15
-SUBLEVEL = 0
+SUBLEVEL = 100
 EXTRAVERSION =
-NAME = Fearless Coyote
+NAME = Aloof Coyote
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"

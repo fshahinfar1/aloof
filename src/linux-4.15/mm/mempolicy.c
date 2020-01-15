@@ -119,10 +119,19 @@ enum zone_type policy_zone = 0;
 /*
  * run-time system-wide default policy => local allocation
  */
+// static struct mempolicy default_policy = {
+// 	.refcnt = ATOMIC_INIT(1), /* never free it */
+// 	.mode = MPOL_PREFERRED,
+// 	.flags = MPOL_F_LOCAL,
+// };
+
+/*
+ * run-time system-wide default policy => allocate on predefined
+ * specific nodes.
+ */
 static struct mempolicy default_policy = {
 	.refcnt = ATOMIC_INIT(1), /* never free it */
-	.mode = MPOL_PREFERRED,
-	.flags = MPOL_F_LOCAL,
+	.mode = MPOL_UNMANAGED,
 };
 
 static struct mempolicy preferred_node_policy[MAX_NUMNODES];
@@ -2030,12 +2039,18 @@ struct page *alloc_pages_current(gfp_t gfp, unsigned order)
 	 * No reference counting needed for current->mempolicy
 	 * nor system default_policy
 	 */
-	if (pol->mode == MPOL_INTERLEAVE)
+	if (pol->mode == MPOL_INTERLEAVE) {
 		page = alloc_page_interleave(gfp, order, interleave_nodes(pol));
-	else
+	} else if (pol->mode == MPOL_UNMANAGED) {
+		// hardcoded node ids (UNMANAGED: node 1)
+		page = __alloc_pages(gfp, order, 1);
+	} else if (pol->mode == MPOL_MANAGED) {
+		page = __alloc_pages(gfp, order, 0);
+	} else {
 		page = __alloc_pages_nodemask(gfp, order,
 				policy_node(gfp, pol, numa_node_id()),
 				policy_nodemask(gfp, pol));
+	}
 
 	return page;
 }
