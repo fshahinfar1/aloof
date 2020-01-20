@@ -119,20 +119,21 @@ enum zone_type policy_zone = 0;
 /*
  * run-time system-wide default policy => local allocation
  */
-// static struct mempolicy default_policy = {
-// 	.refcnt = ATOMIC_INIT(1), /* never free it */
-// 	.mode = MPOL_PREFERRED,
-// 	.flags = MPOL_F_LOCAL,
-// };
+static struct mempolicy default_policy = {
+	.refcnt = ATOMIC_INIT(1), /* never free it */
+	.mode = MPOL_PREFERRED,
+	.flags = MPOL_F_LOCAL,
+};
 
 /*
  * run-time system-wide default policy => allocate on predefined
  * specific nodes.
  */
-static struct mempolicy default_policy = {
-	.refcnt = ATOMIC_INIT(1), /* never free it */
-	.mode = MPOL_UNMANAGED,
-};
+//static struct mempolicy default_policy = {
+//	.refcnt = ATOMIC_INIT(1), /* never free it */
+//	.mode = MPOL_BIND,
+//	.flags = MPOL_F_MOF,
+//};
 
 static struct mempolicy preferred_node_policy[MAX_NUMNODES];
 
@@ -2039,18 +2040,12 @@ struct page *alloc_pages_current(gfp_t gfp, unsigned order)
 	 * No reference counting needed for current->mempolicy
 	 * nor system default_policy
 	 */
-	if (pol->mode == MPOL_INTERLEAVE) {
+	if (pol->mode == MPOL_INTERLEAVE)
 		page = alloc_page_interleave(gfp, order, interleave_nodes(pol));
-	} else if (pol->mode == MPOL_UNMANAGED) {
-		// hardcoded node ids (UNMANAGED: node 1)
-		page = __alloc_pages(gfp, order, 1);
-	} else if (pol->mode == MPOL_MANAGED) {
-		page = __alloc_pages(gfp, order, 0);
-	} else {
+	else
 		page = __alloc_pages_nodemask(gfp, order,
 				policy_node(gfp, pol, numa_node_id()),
 				policy_nodemask(gfp, pol));
-	}
 
 	return page;
 }
@@ -2100,6 +2095,40 @@ struct mempolicy *__mpol_dup(struct mempolicy *old)
 	atomic_set(&new->refcnt, 1);
 	return new;
 }
+
+/*
+ * BEGINING OF CHANGES
+ */
+/*
+ * Return the memory policy that should be used for common
+ * tasks. This policy makes sure that there is room for aloof
+ * task of ours.
+ **/
+struct mempolicy * get_common_mempolicy()
+{
+	NODEMASK_SCRATCH(scratch);
+	// HARD CODED CHOSEN NODE is 1
+	nodemask_t nodes = nodemask_of_node(1);
+	struct mempolicy *new = kmem_cache_alloc(policy_cache, GFP_KERNEL);
+
+	if (!new)
+		return ERR_PTR(-ENOMEM);
+
+	printk(KERN_INFO "Caught init process when forking mpol!\n");
+
+	new = mpol_new(MPOL_BIND, MPOL_F_MOF, &nodes);
+	if (!new) {
+		NODEMASK_SCRATCH_FREE(scratch);
+		return ERR_PTR(-ENOMEM);
+	}
+	mpol_set_nodemask(new, &nodes, scratch);
+
+	NODEMASK_SCRATCH_FREE(scratch);
+	return new;
+}
+/*
+ * END OF CHANGES
+ */
 
 /* Slow path of a mempolicy comparison */
 bool __mpol_equal(struct mempolicy *a, struct mempolicy *b)

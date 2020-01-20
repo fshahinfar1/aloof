@@ -1673,7 +1673,10 @@ static __latent_entropy struct task_struct *copy_process(
 	p->audit_context = NULL;
 	cgroup_fork(p);
 #ifdef CONFIG_NUMA
-	p->mempolicy = mpol_dup(p->mempolicy);
+	if (current->pid == 1)
+		p->mempolicy = get_common_mempolicy();
+	else
+		p->mempolicy = mpol_dup(p->mempolicy);
 	if (IS_ERR(p->mempolicy)) {
 		retval = PTR_ERR(p->mempolicy);
 		p->mempolicy = NULL;
